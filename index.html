@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ピタゴラそうち</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    font-family: 'BIZ UDPGothic', sans-serif; background: #87ceeb; touch-action: none; }
+  #canvas-container { position: fixed; inset: 0; }
+  canvas { display: block; touch-action: none; }
+
+  #ui { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+  .bar { pointer-events: auto; }
+
+  #topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
+    background: linear-gradient(to bottom, rgba(20,40,60,0.6), rgba(20,40,60,0)); gap: 6px; flex-wrap: wrap; }
+  #modeLabel { color: #fff; font-weight: bold; font-size: 15px; background: rgba(0,0,0,0.4);
+    padding: 10px 14px; border-radius: 22px; text-align: center; }
+  #timeLabel { color: #fff; font-weight: bold; font-size: 15px; background: rgba(0,0,0,0.4);
+    padding: 10px 14px; border-radius: 22px; display: none; min-width: 90px; text-align: center; font-variant-numeric: tabular-nums; }
+  select#stageSelect { font-family: inherit; font-size: 15px; padding: 8px 10px; border-radius: 10px; border: none; min-height: 44px; }
+  .btn { font-family: inherit; font-size: 15px; padding: 8px 16px; min-height: 44px; min-width: 44px; border-radius: 12px;
+    border: none; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,0.25); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.25); }
+  .btn-play { background: #43a047; color: #fff; }
+  .btn-reset { background: #fb8c00; color: #fff; }
+  .btn-danger { background: #e53935; color: #fff; }
+  .btn-neutral { background: #fff; color: #333; }
+  .btn-sound { background: rgba(255,255,255,0.92); color: #333; }
+
+  #selPanel { pointer-events: auto; position: fixed; top: 70px; right: 10px; background: rgba(20,30,40,0.72);
+    border-radius: 16px; padding: 10px; display: none; flex-direction: column; gap: 8px; z-index: 10; }
+  #selPanel.show { display: flex; }
+  #selName { color: #fff; font-weight: bold; font-size: 13px; text-align: center; }
+
+  #palette { pointer-events: auto; display: flex; gap: 8px; overflow-x: auto; padding: 10px 10px 14px;
+    background: linear-gradient(to top, rgba(20,40,60,0.6), rgba(20,40,60,0.02)); -webkit-overflow-scrolling: touch; }
+  .part-btn { flex: 0 0 auto; width: 80px; height: 84px; border-radius: 16px; border: none; background: rgba(255,255,255,0.94);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 26px; position: relative;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.25); }
+  .part-btn span.lbl { font-size: 11px; font-weight: bold; color: #333; }
+  .part-btn span.cnt { position: absolute; top: 4px; right: 6px; font-size: 12px; font-weight: bold;
+    background: #1976d2; color: #fff; border-radius: 10px; padding: 1px 7px; }
+  .part-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.25); }
+  .part-btn:disabled { opacity: 0.35; }
+
+  #toast { position: fixed; top: 44%; left: 50%; transform: translate(-50%,-50%); background: rgba(20,30,40,0.82); color: #fff;
+    padding: 20px 32px; border-radius: 22px; font-size: 24px; font-weight: bold; display: none; text-align: center;
+    pointer-events: none; z-index: 20; max-width: 86vw; }
+  #toast.show { display: block; }
+  #hint { position: fixed; left: 10px; bottom: 112px; color: #fff; background: rgba(20,30,40,0.5); padding: 8px 12px;
+    border-radius: 10px; font-size: 12px; pointer-events: none; max-width: 250px; line-height: 1.5; }
+
+  #confirmBack { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 30; }
+  #confirmBack.show { display: flex; }
+  #confirmBox { background: #fff; border-radius: 18px; padding: 22px; text-align: center; width: 270px; }
+  #confirmBox p { font-weight: bold; margin: 0 0 16px; font-size: 17px; }
+  #confirmBox .row { display: flex; gap: 10px; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div id="ui">
+  <div id="topbar" class="bar">
+    <div id="modeLabel">🛠 はいち モード</div>
+    <div id="timeLabel">⏱ 0.0 びょう</div>
+    <select id="stageSelect">
+      <option value="1">ステージ 1</option>
+      <option value="2">ステージ 2</option>
+      <option value="3">ステージ 3</option>
+      <option value="free" selected>じゆう モード</option>
+    </select>
+    <button id="soundBtn" class="btn btn-sound">🔊</button>
+    <button id="playBtn" class="btn btn-play">▶ さいせい</button>
+    <button id="resetBtn" class="btn btn-reset" style="display:none;">↺ もどす</button>
+  </div>
+
+  <div id="hint">パーツをタップして えらぶ／ゆびで うごかす<br>もういちど タップで メニュー</div>
+
+  <div id="palette" class="bar"></div>
+</div>
+
+<div id="selPanel">
+  <div id="selName">パーツ</div>
+  <button id="rotBtn" class="btn btn-neutral">↻ むき</button>
+  <button id="tiltBtn" class="btn btn-neutral" style="display:none;">📐 かたむき</button>
+  <button id="delBtn" class="btn btn-danger">🗑 けす</button>
+</div>
+
+<div id="toast"></div>
+
+<div id="confirmBack">
+  <div id="confirmBox">
+    <p>この パーツを けす？</p>
+    <div class="row">
+      <button id="confirmYes" class="btn btn-danger">けす</button>
+      <button id="confirmNo" class="btn btn-neutral">やめる</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as CANNON from 'cannon-es';
+
+/* ================================================================
+   ピタゴラそうち v2
+   - dynParts 構造: 動的剛体とメッシュをワールド座標で正確に同期
+   - ステージ 1-3: 固定パーツ + 持ちパーツ数制限の制約パズル
+   - ゴール判定: 水平距離ベース（地面を転がるボールでも判定される）
+   ================================================================ */
+
+/* ============ Web Audio ============ */
+let actx = null;
+let soundOn = true;
+let bgmTimer = null;
+function ensureAudio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+}
+function beep(freq, dur, type = 'sine', vol = 0.16, delay = 0) {
+  if (!soundOn || !actx) return;
+  const t0 = actx.currentTime + delay;
+  const osc = actx.createOscillator();
+  const gain = actx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(gain); gain.connect(actx.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.05);
+}
+const sfx = {
+  place: () => beep(520, 0.12, 'triangle', 0.15),
+  del: () => beep(180, 0.16, 'sawtooth', 0.1),
+  rotate: () => beep(700, 0.06, 'square', 0.07),
+  tilt: () => beep(600, 0.06, 'square', 0.07),
+  clack: () => beep(260 + Math.random() * 180, 0.07, 'square', 0.09),
+  goal: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => beep(f, 0.4, 'triangle', 0.2, i * 0.11)); },
+  fail: () => { beep(330, 0.2, 'sawtooth', 0.12); beep(220, 0.35, 'sawtooth', 0.12, 0.18); },
+  deny: () => beep(200, 0.12, 'square', 0.08),
+};
+const BGM_NOTES = [262, 330, 392, 523, 392, 330, 294, 349, 440, 587, 440, 349];
+let bgmStep = 0;
+function startBGM() {
+  stopBGM();
+  bgmStep = 0;
+  bgmTimer = setInterval(() => {
+    beep(BGM_NOTES[bgmStep % BGM_NOTES.length], 0.14, 'square', 0.035);
+    if (bgmStep % 2 === 0) beep(BGM_NOTES[bgmStep % BGM_NOTES.length] / 2, 0.2, 'triangle', 0.03);
+    bgmStep++;
+  }, 170);
+}
+function stopBGM() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } }
+
+/* ============ Three.js scene ============ */
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9adcf5);
+scene.fog = new THREE.Fog(0x9adcf5, 30, 80);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 11, 13);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x7a9a6a, 0.85));
+const dirLight = new THREE.DirectionalLight(0xfff4e0, 1.15);
+dirLight.position.set(8, 16, 7);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.left = -14; dirLight.shadow.camera.right = 14;
+dirLight.shadow.camera.top = 14; dirLight.shadow.camera.bottom = -14;
+scene.add(dirLight);
+
+const GROUND_SIZE = 16;
+const groundMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+  new THREE.MeshStandardMaterial({ color: 0x86c97e, roughness: 0.95 })
+);
+groundMesh.rotation.x = -Math.PI / 2;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+
+const rim = new THREE.Mesh(
+  new THREE.PlaneGeometry(GROUND_SIZE + 8, GROUND_SIZE + 8),
+  new THREE.MeshStandardMaterial({ color: 0x6fae68, roughness: 1 })
+);
+rim.rotation.x = -Math.PI / 2; rim.position.y = -0.02;
+scene.add(rim);
+
+const grid = new THREE.GridHelper(GROUND_SIZE, GROUND_SIZE * 2, 0xffffff, 0xb9e0b3);
+grid.material.opacity = 0.55; grid.material.transparent = true;
+grid.position.y = 0.01;
+scene.add(grid);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.8, 0);
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 4;
+controls.maxDistance = 34;
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.update();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============ Physics ============ */
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+// SAPBroadphaseは編集モードでの直接的な位置変更/type切替と相性が悪く
+// 衝突ペアを取りこぼすため、パーツ数が少ない本作ではNaiveを使う
+world.broadphase = new CANNON.NaiveBroadphase();
+world.allowSleep = true;
+world.solver.iterations = 14;
+world.defaultContactMaterial.friction = 0.4;
+world.defaultContactMaterial.restitution = 0.1;
+
+const matGround = new CANNON.Material('ground');
+const matPart = new CANNON.Material('part');
+const matBall = new CANNON.Material('ball');
+const matBouncy = new CANNON.Material('bouncy');
+
+world.addContactMaterial(new CANNON.ContactMaterial(matGround, matBall, { friction: 0.25, restitution: 0.25 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matPart, matBall, { friction: 0.3, restitution: 0.3 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matBouncy, matBall, { friction: 0.15, restitution: 1.25 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matPart, matGround, { friction: 0.6, restitution: 0.05 }));
+// パーツ同士は滑らかに(ドミノがもたれ合いで止まらないように)
+world.addContactMaterial(new CANNON.ContactMaterial(matPart, matPart, { friction: 0.08, restitution: 0.05 }));
+
+const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: matGround });
+groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+world.addBody(groundBody);
+
+/* ============ Helpers ============ */
+const SNAP = 0.5;
+const snap = v => Math.round(v / SNAP) * SNAP;
+const clampField = v => THREE.MathUtils.clamp(v, -GROUND_SIZE / 2 + 0.6, GROUND_SIZE / 2 - 0.6);
+const raycaster = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function pointerToGround(cx, cy) {
+  const ndc = new THREE.Vector2((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const pt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(groundPlane, pt);
+  return pt;
+}
+const stdMat = (c, opts = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.05, ...opts });
+function facingDir(rotY) { return new THREE.Vector3(Math.sin(rotY), 0, Math.cos(rotY)); }
+
+/* ============ Part definitions ============ */
+const PART_DEFS = {
+  ramp:   { label: 'さかみち',    icon: '📐', hasTilt: true },
+  domino: { label: 'ドミノ',      icon: '🁢' },
+  fan:    { label: 'ファン',      icon: '🌀' },
+  trampo: { label: 'トランポリン', icon: '🛞' },
+  pendulum: { label: 'ふりこ',    icon: '🎳' },
+  seesaw: { label: 'シーソー',    icon: '⚖' },
+  goal:   { label: 'ゴール',      icon: '🔔', single: true },
+};
+const TILT_ANGLES = [0.28, 0.42, 0.56]; // 3段階
+
+let placedParts = [];
+let selected = null;
+let mode = 'edit';
+let ballBody = null, ballMesh = null;
+let goalHit = false, ballFailed = false;
+let elapsed = 0;
+let currentStage = 'free';
+let inventory = null; // null = 無制限
+
+/* ---------------------------------------------------------------
+   part = {
+     id, type, x, z, rotY, locked, tiltIdx,
+     group: THREE.Group (静的ビジュアル, (x,0,z)+rotY),
+     staticBodies: [CANNON.Body],
+     dynParts: [{ body, mesh(scene直下・ワールド同期), home:{pos,quat}, playMass }],
+     constraints: [],  // play中のみ
+     makeConstraints: (part) => [CANNON.Constraint],
+     isGoal, isStart, isFan, fanBlade
+   }
+   --------------------------------------------------------------- */
+
+function makePart(type, x, z, rotY = 0, locked = false, tiltIdx = 0) {
+  const group = new THREE.Group();
+  const part = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())),
+    type, x, z, rotY, locked, tiltIdx,
+    group, staticBodies: [], dynParts: [], constraints: [], makeConstraints: null,
+  };
+
+  if (type === 'start') {
+    part.isStart = true;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.25, 16), stdMat(0x546e7a));
+    base.position.y = 0.125; base.castShadow = true;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 8), stdMat(0x90a4ae));
+    pole.position.y = 0.65;
+    const holder = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.045, 8, 20), stdMat(0xffe082, { emissive: 0x775500, emissiveIntensity: 0.3 }));
+    holder.position.set(0, 1.32, 0.2); holder.rotation.x = Math.PI / 2;
+    // 発射シュート(内蔵の滑り台): ローカル+z(=facing方向)が下り
+    const CH_TILT = 0.5, CH_HALF = 0.8, CH_W = 1.0, CH_T = 0.1;
+    const chCY = 0.13 + Math.sin(CH_TILT) * CH_HALF;       // 下端が地面すれすれ
+    const chOffZ = 0.85;                                    // シュート中心のオフセット
+    const chute = new THREE.Mesh(new THREE.BoxGeometry(CH_W, CH_T, CH_HALF * 2), stdMat(0x78909c));
+    chute.position.set(0, chCY, chOffZ);
+    chute.rotation.x = CH_TILT;
+    chute.castShadow = true; chute.receiveShadow = true;
+    const railGeo = new THREE.BoxGeometry(0.07, 0.16, CH_HALF * 2);
+    const railL = new THREE.Mesh(railGeo, stdMat(0x546e7a));
+    railL.position.set(-CH_W / 2 + 0.035, chCY + 0.1, chOffZ);
+    railL.rotation.x = CH_TILT;
+    const railR = railL.clone(); railR.position.x = CH_W / 2 - 0.035;
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 10), stdMat(0xef5350));
+    arrow.position.set(0, 0.28, chOffZ + CH_HALF + 0.35); arrow.rotation.x = Math.PI / 2;
+    group.add(base, pole, holder, chute, railL, railR, arrow);
+    const chuteBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(CH_W / 2, CH_T / 2, CH_HALF)), material: matPart });
+    part.staticBodies.push(chuteBody);
+    part.startChute = { body: chuteBody, tilt: CH_TILT, cy: chCY, offZ: chOffZ };
+    applyStartTransform(part);
+  }
+  else if (type === 'goal') {
+    part.isGoal = true;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 8), stdMat(0x8d6e63));
+    pole.position.y = 0.5;
+    const bell = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.44, 16, 1, true), stdMat(0xffd54f, { emissive: 0x664400, emissiveIntensity: 0.25, side: THREE.DoubleSide }));
+    bell.position.y = 1.1;
+    const clapper = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), stdMat(0x795548));
+    clapper.position.y = 0.86;
+    const ringGeo = new THREE.TorusGeometry(0.5, 0.05, 8, 24);
+    const ring = new THREE.Mesh(ringGeo, stdMat(0xffb300, { emissive: 0x663f00, emissiveIntensity: 0.35 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.06;
+    bell.castShadow = true;
+    group.add(pole, bell, clapper, ring);
+    part.goalRing = ring;
+  }
+  else if (type === 'ramp') {
+    const L = 2.0, W = 1.1, T = 0.12;
+    const board = new THREE.Mesh(new THREE.BoxGeometry(W, T, L), stdMat(0xa1887f));
+    board.castShadow = true; board.receiveShadow = true;
+    group.add(board);
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(W * 0.8, 0.1, 0.14), stdMat(0x8d6e63));
+    group.add(legs);
+    part.rampBoard = board; part.rampLegs = legs; part.rampDims = { L, W, T };
+    const body = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(W / 2, T / 2, L / 2)), material: matPart });
+    part.staticBodies.push(body);
+    part.rampBody = body;
+    applyRampTransform(part);
+  }
+  else if (type === 'domino') {
+    const W = 0.16, H = 0.8, D = 0.22;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), stdMat(0xef5350));
+    mesh.castShadow = true;
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(W + 0.005, 0.1, D + 0.005), stdMat(0xffffff));
+    mesh.add(stripe);
+    scene.add(mesh);
+    const body = new CANNON.Body({ mass: 0.12, shape: new CANNON.Box(new CANNON.Vec3(W / 2, H / 2, D / 2)), material: matPart });
+    body.type = CANNON.Body.STATIC;
+    body.allowSleep = false; // 傾き途中でスリープすると倒れ切らないため禁止
+    part.dynParts.push({ body, mesh, home: { pos: new CANNON.Vec3(x, H / 2, z), quat: new CANNON.Quaternion() }, playMass: 0.12 });
+  }
+  else if (type === 'fan') {
+    part.isFan = true;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 0.5, 14), stdMat(0x607d8b));
+    base.position.y = 0.25; base.castShadow = true;
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.16, 16), stdMat(0x455a64));
+    head.rotation.x = Math.PI / 2; head.position.set(0, 0.72, 0.02);
+    const bladeGroup = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.03), stdMat(0x4fc3f7));
+      blade.position.y = 0.22;
+      const pivot = new THREE.Group();
+      pivot.rotation.z = (i / 3) * Math.PI * 2;
+      pivot.add(blade);
+      bladeGroup.add(pivot);
+    }
+    bladeGroup.position.set(0, 0.72, 0.12);
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 10), stdMat(0x29b6f6, { emissive: 0x004466, emissiveIntensity: 0.4 }));
+    arrow.position.set(0, 0.72, 0.65); arrow.rotation.x = Math.PI / 2;
+    group.add(base, head, bladeGroup, arrow);
+    part.fanBlade = bladeGroup;
+    const body = new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(0.32, 0.32, 1.0, 10), material: matPart });
+    body.position.set(x, 0.5, z);
+    part.staticBodies.push(body);
+  }
+  else if (type === 'trampo') {
+    const frame = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.66, 0.14, 22), stdMat(0x7e57c2));
+    frame.position.y = 0.2; frame.castShadow = true;
+    const sheet = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 22), stdMat(0xb39ddb, { emissive: 0x2a1a4a, emissiveIntensity: 0.3 }));
+    sheet.position.y = 0.27;
+    const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 8);
+    for (let i = 0; i < 4; i++) {
+      const leg = new THREE.Mesh(legGeo, stdMat(0x5e35b1));
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      leg.position.set(Math.cos(a) * 0.5, 0.1, Math.sin(a) * 0.5);
+      group.add(leg);
+    }
+    group.add(frame, sheet);
+    const body = new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(0.58, 0.58, 0.3, 14), material: matBouncy });
+    body.position.set(x, 0.15, z);
+    part.staticBodies.push(body);
+  }
+  else if (type === 'pendulum') {
+    const H = 2.6, LEN = 2.1, OFF = 0.7; // おもり最下点がボールに当たる高さになるよう調整
+    const frameMatr = stdMat(0xff9800);
+    const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, H, 8), frameMatr);
+    postL.position.set(-0.55, H / 2, 0);
+    const postR = postL.clone(); postR.position.x = 0.55;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8), frameMatr);
+    beam.rotation.z = Math.PI / 2; beam.position.y = H;
+    group.add(postL, postR, beam);
+    // dynamic bob
+    const bobMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), stdMat(0xffb74d, { metalness: 0.35, roughness: 0.35 }));
+    bobMesh.castShadow = true;
+    scene.add(bobMesh);
+    const rodMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1, 6), stdMat(0xbdbdbd));
+    scene.add(rodMesh);
+    const bobBody = new CANNON.Body({ mass: 0.8, shape: new CANNON.Sphere(0.3), material: matPart, angularDamping: 0.4 });
+    bobBody.type = CANNON.Body.STATIC;
+    bobBody.allowSleep = false;
+    const anchorBody = new CANNON.Body({ mass: 0, shape: new CANNON.Sphere(0.03), collisionFilterMask: 0 });
+    part.staticBodies.push(anchorBody);
+    part.pend = { anchorBody, bobBody, rodMesh, H, LEN, OFF };
+    part.dynParts.push({ body: bobBody, mesh: bobMesh, home: { pos: new CANNON.Vec3(), quat: new CANNON.Quaternion() }, playMass: 0.8 });
+    part.makeConstraints = (pp) => {
+      const local = anchorBody.position.vsub(bobBody.position); // bobローカル(無回転)でのアンカー位置
+      return [new CANNON.PointToPointConstraint(anchorBody, new CANNON.Vec3(0, 0, 0), bobBody, local)];
+    };
+    updatePendulumHome(part);
+  }
+  else if (type === 'seesaw') {
+    const pivot = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 4), stdMat(0x6d4c41));
+    pivot.position.y = 0.25; pivot.rotation.y = Math.PI / 4; pivot.castShadow = true;
+    group.add(pivot);
+    const plankMesh = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.7), stdMat(0x66bb6a));
+    plankMesh.castShadow = true;
+    const edgeL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.7), stdMat(0x388e3c));
+    edgeL.position.x = -1.16;
+    const edgeR = edgeL.clone(); edgeR.position.x = 1.16;
+    plankMesh.add(edgeL, edgeR);
+    scene.add(plankMesh);
+    const pivotBody = new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(0.1, 0.22, 0.5, 8), material: matPart });
+    part.staticBodies.push(pivotBody);
+    const plankBody = new CANNON.Body({ mass: 1.5, shape: new CANNON.Box(new CANNON.Vec3(1.2, 0.05, 0.35)), material: matPart, angularDamping: 0.25 });
+    plankBody.type = CANNON.Body.STATIC;
+    plankBody.allowSleep = false;
+    part.seesaw = { pivotBody, plankBody };
+    part.dynParts.push({ body: plankBody, mesh: plankMesh, home: { pos: new CANNON.Vec3(), quat: new CANNON.Quaternion() }, playMass: 1.5 });
+    part.makeConstraints = (pp) => {
+      const axis = new CANNON.Vec3(Math.sin(pp.rotY), 0, Math.cos(pp.rotY)); // 板の短辺方向(ワールド)
+      // HingeConstraintはローカル軸指定: pivotBodyは無回転なのでワールド軸=ローカル軸
+      const axisB = new CANNON.Vec3(0, 0, 1); // plankローカルの短辺方向
+      return [new CANNON.HingeConstraint(pp.seesaw.pivotBody, pp.seesaw.plankBody, {
+        pivotA: new CANNON.Vec3(0, 0.28, 0),
+        pivotB: new CANNON.Vec3(0, 0, 0),
+        axisA: axis,
+        axisB: axisB,
+      })];
+    };
+    updateSeesawHome(part);
+  }
+
+  group.position.set(x, 0, z);
+  group.rotation.y = rotY;
+  scene.add(group);
+
+  part.staticBodies.forEach(b => { world.addBody(b); });
+  part.dynParts.forEach(d => { world.addBody(d.body); });
+  applyPartTransform(part);
+  return part;
+}
+
+function applyStartTransform(part) {
+  const { body, tilt, cy, offZ } = part.startChute;
+  const dir = facingDir(part.rotY);
+  body.position.set(part.x + dir.x * offZ, cy, part.z + dir.z * offZ);
+  const q = new CANNON.Quaternion(); q.setFromEuler(0, part.rotY, 0);
+  const qt = new CANNON.Quaternion(); qt.setFromEuler(tilt, 0, 0);
+  body.quaternion.copy(q.mult(qt));
+}
+
+function applyRampTransform(part) {
+  const tilt = TILT_ANGLES[part.tiltIdx];
+  const { L, T } = part.rampDims;
+  const cy = Math.sin(tilt) * L / 2 * 0.5 + 0.28;
+  // ビジュアル
+  part.rampBoard.position.set(0, cy, 0);
+  part.rampBoard.rotation.x = tilt;
+  part.rampLegs.position.set(0, cy / 2 + Math.sin(tilt) * L / 4 - 0.05, -Math.cos(tilt) * L / 4 - 0.2);
+  part.rampLegs.scale.y = Math.max(0.5, (cy + Math.sin(tilt) * L / 4) / 0.1 * 0.35);
+  // 物理: yaw * xTilt
+  const q = new CANNON.Quaternion();
+  q.setFromEuler(0, part.rotY, 0);
+  const qt = new CANNON.Quaternion();
+  qt.setFromEuler(tilt, 0, 0);
+  const qq = q.mult(qt);
+  part.rampBody.quaternion.copy(qq);
+  part.rampBody.position.set(part.x, cy, part.z);
+}
+
+function updatePendulumHome(part) {
+  const { anchorBody, bobBody, H, LEN, OFF } = part.pend;
+  anchorBody.position.set(part.x, H, part.z);
+  const dir = facingDir(part.rotY);
+  const dy = Math.sqrt(Math.max(LEN * LEN - OFF * OFF, 0.01));
+  const home = part.dynParts[0].home;
+  home.pos.set(part.x + dir.x * OFF, H - dy, part.z + dir.z * OFF);
+  home.quat.set(0, 0, 0, 1);
+  if (mode === 'edit') { bobBody.position.copy(home.pos); bobBody.quaternion.copy(home.quat); }
+}
+
+function updateSeesawHome(part) {
+  const { pivotBody, plankBody } = part.seesaw;
+  pivotBody.position.set(part.x, 0.25, part.z);
+  const home = part.dynParts[0].home;
+  home.pos.set(part.x, 0.56, part.z);
+  const q = new CANNON.Quaternion();
+  q.setFromEuler(0, part.rotY, 0);
+  home.quat.copy(q);
+  if (mode === 'edit') { plankBody.position.copy(home.pos); plankBody.quaternion.copy(home.quat); }
+}
+
+function applyPartTransform(part) {
+  part.group.position.set(part.x, 0, part.z);
+  part.group.rotation.y = part.rotY;
+  if (part.type === 'start') applyStartTransform(part);
+  else if (part.type === 'ramp') applyRampTransform(part);
+  else if (part.type === 'pendulum') updatePendulumHome(part);
+  else if (part.type === 'seesaw') updateSeesawHome(part);
+  else if (part.type === 'domino') {
+    const d = part.dynParts[0];
+    d.home.pos.set(part.x, 0.4, part.z); // ドミノ高さ0.8の半分
+    const q = new CANNON.Quaternion(); q.setFromEuler(0, part.rotY, 0);
+    d.home.quat.copy(q);
+    if (mode === 'edit') { d.body.position.copy(d.home.pos); d.body.quaternion.copy(d.home.quat); }
+  }
+  else {
+    part.staticBodies.forEach(b => {
+      b.position.set(part.x, b.position.y, part.z);
+      b.quaternion.setFromEuler(0, part.rotY, 0);
+    });
+  }
+  syncDynMeshes(part);
+}
+
+function syncDynMeshes(part) {
+  part.dynParts.forEach(d => {
+    d.mesh.position.copy(d.body.position);
+    d.mesh.quaternion.copy(d.body.quaternion);
+  });
+  if (part.pend) {
+    const { anchorBody, rodMesh } = part.pend;
+    const bob = part.dynParts[0].body;
+    const a = new THREE.Vector3(anchorBody.position.x, anchorBody.position.y, anchorBody.position.z);
+    const b = new THREE.Vector3(bob.position.x, bob.position.y, bob.position.z);
+    const mid = a.clone().add(b).multiplyScalar(0.5);
+    const dir = b.clone().sub(a);
+    const len = Math.max(dir.length(), 0.01);
+    rodMesh.position.copy(mid);
+    rodMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    rodMesh.scale.set(1, len, 1);
+  }
+}
+
+function removePart(part) {
+  scene.remove(part.group);
+  part.dynParts.forEach(d => { scene.remove(d.mesh); world.removeBody(d.body); });
+  if (part.pend) scene.remove(part.pend.rodMesh);
+  part.staticBodies.forEach(b => world.removeBody(b));
+  part.constraints.forEach(c => world.removeConstraint(c));
+  placedParts = placedParts.filter(p => p !== part);
+}
+
+function movePart(part, x, z) {
+  part.x = clampField(snap(x));
+  part.z = clampField(snap(z));
+  applyPartTransform(part);
+  part.staticBodies.forEach(b => { b.aabbNeedsUpdate = true; });
+  part.dynParts.forEach(d => { d.body.aabbNeedsUpdate = true; });
+}
+
+function rotatePart(part) {
+  part.rotY = (part.rotY + Math.PI / 4) % (Math.PI * 2);
+  applyPartTransform(part);
+}
+
+function tiltPart(part) {
+  if (part.type !== 'ramp') return;
+  part.tiltIdx = (part.tiltIdx + 1) % TILT_ANGLES.length;
+  applyPartTransform(part);
+}
+
+/* ============ Selection ============ */
+const selPanel = document.getElementById('selPanel');
+const selName = document.getElementById('selName');
+const rotBtn = document.getElementById('rotBtn');
+const tiltBtn = document.getElementById('tiltBtn');
+const delBtn = document.getElementById('delBtn');
+const confirmBack = document.getElementById('confirmBack');
+
+function setEmissive(part, hex) {
+  const targets = [part.group, ...part.dynParts.map(d => d.mesh)];
+  targets.forEach(root => root.traverse(o => {
+    if (o.isMesh && o.material && o.material.emissive) {
+      if (hex !== null) {
+        if (o.userData._e === undefined) o.userData._e = o.material.emissive.getHex();
+        o.material.emissive.setHex(hex);
+      } else if (o.userData._e !== undefined) {
+        o.material.emissive.setHex(o.userData._e);
+        delete o.userData._e;
+      }
+    }
+  }));
+}
+
+function selectPart(part) {
+  if (selected) setEmissive(selected, null);
+  selected = part;
+  if (part) {
+    setEmissive(part, 0x444400);
+    selName.textContent = PART_DEFS[part.type] ? PART_DEFS[part.type].label : 'スタート';
+    tiltBtn.style.display = part.type === 'ramp' ? 'block' : 'none';
+    const deletable = !part.locked && !part.isStart && !(part.isGoal && currentStage !== 'free');
+    delBtn.style.display = deletable ? 'block' : 'none';
+    rotBtn.style.display = part.locked ? 'none' : 'block';
+    if (part.type === 'ramp') tiltBtn.style.display = part.locked ? 'none' : 'block';
+    selPanel.classList.add('show');
+  } else {
+    selPanel.classList.remove('show');
+  }
+}
+
+rotBtn.addEventListener('click', () => { if (selected && !selected.locked) { rotatePart(selected); sfx.rotate(); } });
+tiltBtn.addEventListener('click', () => { if (selected && !selected.locked) { tiltPart(selected); sfx.tilt(); } });
+delBtn.addEventListener('click', () => { if (selected) confirmBack.classList.add('show'); });
+document.getElementById('confirmYes').addEventListener('click', () => {
+  confirmBack.classList.remove('show');
+  if (selected) {
+    if (inventory && inventory[selected.type] !== undefined) { inventory[selected.type]++; refreshPalette(); }
+    removePart(selected); sfx.del(); selectPart(null);
+  }
+});
+document.getElementById('confirmNo').addEventListener('click', () => confirmBack.classList.remove('show'));
+
+/* ============ Pointer (drag / select) ============ */
+let dragging = null;
+let pDown = null;
+let pMoved = false;
+
+function partFromObject(obj) {
+  let o = obj;
+  while (o) {
+    const hit = placedParts.find(pp => pp.group === o || pp.dynParts.some(d => d.mesh === o));
+    if (hit) return hit;
+    o = o.parent;
+  }
+  return null;
+}
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  ensureAudio();
+  if (mode !== 'edit') return;
+  pDown = { x: e.clientX, y: e.clientY };
+  pMoved = false;
+  const ndc = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(scene.children, true);
+  for (const h of hits) {
+    const p = partFromObject(h.object);
+    if (p) {
+      if (p.locked) { showToast('これは うごかせないよ', 1100); sfx.deny(); return; }
+      dragging = p;
+      controls.enabled = false;
+      return;
+    }
+  }
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (pDown && Math.hypot(e.clientX - pDown.x, e.clientY - pDown.y) > 7) pMoved = true;
+  if (dragging && mode === 'edit') {
+    const pt = pointerToGround(e.clientX, e.clientY);
+    if (pt) movePart(dragging, pt.x, pt.z);
+  }
+});
+window.addEventListener('pointerup', (e) => {
+  if (dragging) {
+    selectPart(dragging);
+    dragging = null;
+    controls.enabled = true;
+  } else if (pDown && !pMoved && mode === 'edit' && e.target === renderer.domElement) {
+    selectPart(null);
+  }
+  pDown = null;
+});
+
+/* ============ Palette / inventory ============ */
+const paletteEl = document.getElementById('palette');
+function refreshPalette() {
+  paletteEl.innerHTML = '';
+  Object.keys(PART_DEFS).forEach(type => {
+    const def = PART_DEFS[type];
+    if (type === 'goal' && currentStage !== 'free') return; // ステージではゴール固定
+    const btn = document.createElement('button');
+    btn.className = 'part-btn';
+    const remain = inventory ? (inventory[type] ?? 0) : Infinity;
+    btn.innerHTML = `<div>${def.icon}</div><span class="lbl">${def.label}</span>` +
+      (inventory ? `<span class="cnt">${remain}</span>` : '');
+    if (inventory && remain <= 0) btn.disabled = true;
+    btn.addEventListener('click', () => {
+      if (mode !== 'edit') return;
+      if (def.single && placedParts.some(p => p.type === type)) { showToast(def.label + ' は ひとつだけ'); sfx.deny(); return; }
+      if (inventory) {
+        if ((inventory[type] ?? 0) <= 0) { sfx.deny(); return; }
+        inventory[type]--;
+      }
+      const p = makePart(type, 0, 0, 0);
+      placedParts.push(p);
+      sfx.place();
+      selectPart(p);
+      refreshPalette();
+    });
+    paletteEl.appendChild(btn);
+  });
+}
+
+/* ============ Toast ============ */
+let toastTimer = null;
+function showToast(msg, ms = 1500) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ============ Stages ============ */
+function clearAll() {
+  [...placedParts].forEach(removePart);
+  selectPart(null);
+}
+
+const STAGES = {
+  '1': {
+    hint: 'ボールを ベルまで とどけよう!<br>🌀ファンは みちの <b>よこ</b>に おくと うまくいくよ',
+    fixed: [
+      { type: 'start', x: -6, z: 0, rotY: Math.PI / 2 },
+      { type: 'goal', x: 5, z: 0, rotY: 0 },
+    ],
+    inventory: { fan: 2 },
+  },
+  '2': {
+    hint: 'まがりかどが あるよ!<br>ファンの むきを かんがえよう',
+    fixed: [
+      { type: 'start', x: -6, z: -3, rotY: Math.PI / 2 },
+      { type: 'goal', x: 4, z: 3, rotY: 0 },
+    ],
+    inventory: { fan: 3, ramp: 1 },
+  },
+  '3': {
+    hint: 'ドミノと ふりこも つかって<br>れんさ させてみよう!',
+    fixed: [
+      { type: 'start', x: -6, z: 0, rotY: Math.PI / 2 },
+      { type: 'goal', x: 6, z: 0, rotY: 0 },
+    ],
+    inventory: { fan: 2, domino: 6, trampo: 1, pendulum: 1, seesaw: 1, ramp: 1 },
+  },
+  'free': {
+    hint: 'すきなように つくってみよう!',
+    fixed: [
+      { type: 'start', x: -6, z: 0, rotY: Math.PI / 2 },
+      { type: 'goal', x: 6, z: 0, rotY: 0 },
+    ],
+    inventory: null,
+  },
+};
+
+function loadStage(stage) {
+  clearAll();
+  currentStage = stage;
+  const def = STAGES[stage];
+  def.fixed.forEach(f => {
+    const p = makePart(f.type, f.x, f.z, f.rotY || 0, !!f.locked, f.tiltIdx || 0);
+    placedParts.push(p);
+  });
+  inventory = def.inventory ? { ...def.inventory } : null;
+  refreshPalette();
+  showToast(def.hint, 2600);
+}
+
+/* ============ Ball ============ */
+const BALL_R = 0.24;
+function spawnBall() {
+  const start = placedParts.find(p => p.isStart);
+  const dir = facingDir(start ? start.rotY : 0);
+  const px = start ? start.x : -6, pz = start ? start.z : 0;
+  ballMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(BALL_R, 22, 18),
+    stdMat(0xff5252, { metalness: 0.3, roughness: 0.25 })
+  );
+  ballMesh.castShadow = true;
+  scene.add(ballMesh);
+  ballBody = new CANNON.Body({
+    mass: 0.5, shape: new CANNON.Sphere(BALL_R), material: matBall,
+    linearDamping: 0.04, angularDamping: 0.2,
+  });
+  ballBody.allowSleep = false;
+  // シュート上端の少し上に出現 → ホルダーリングを通って滑り落ちる
+  ballBody.position.set(px + dir.x * 0.2, 1.35, pz + dir.z * 0.2);
+  ballBody.velocity.set(dir.x * 0.4, 0, dir.z * 0.4);
+  let lastClack = 0;
+  ballBody.addEventListener('collide', (ev) => {
+    const now = performance.now();
+    const v = ev.contact ? Math.abs(ev.contact.getImpactVelocityAlongNormal()) : 1;
+    if (now - lastClack > 90 && v > 0.8) { sfx.clack(); lastClack = now; }
+  });
+  world.addBody(ballBody);
+  goalHit = false;
+  ballFailed = false;
+  elapsed = 0;
+}
+function despawnBall() {
+  if (ballBody) { world.removeBody(ballBody); ballBody = null; }
+  if (ballMesh) { scene.remove(ballMesh); ballMesh = null; }
+}
+
+/* ============ Play mode ============ */
+const modeLabel = document.getElementById('modeLabel');
+const timeLabel = document.getElementById('timeLabel');
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+const stageSelect = document.getElementById('stageSelect');
+const soundBtn = document.getElementById('soundBtn');
+
+function activatePlay() {
+  placedParts.forEach(p => {
+    p.dynParts.forEach(d => {
+      d.body.position.copy(d.home.pos);
+      d.body.quaternion.copy(d.home.quat);
+      d.body.velocity.setZero();
+      d.body.angularVelocity.setZero();
+      d.body.type = CANNON.Body.DYNAMIC;
+      d.body.mass = d.playMass;
+      d.body.updateMassProperties();
+      d.body.wakeUp();
+    });
+    if (p.makeConstraints) {
+      p.constraints = p.makeConstraints(p);
+      p.constraints.forEach(c => world.addConstraint(c));
+    }
+  });
+}
+function deactivatePlay() {
+  placedParts.forEach(p => {
+    p.constraints.forEach(c => world.removeConstraint(c));
+    p.constraints = [];
+    p.dynParts.forEach(d => {
+      d.body.type = CANNON.Body.STATIC;
+      d.body.velocity.setZero();
+      d.body.angularVelocity.setZero();
+      d.body.position.copy(d.home.pos);
+      d.body.quaternion.copy(d.home.quat);
+    });
+    syncDynMeshes(p);
+  });
+}
+
+function frameCameraToParts() {
+  if (!placedParts.length) return;
+  const box = new THREE.Box3();
+  placedParts.forEach(p => box.expandByPoint(new THREE.Vector3(p.x, 1, p.z)));
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const span = Math.max(size.x, size.z, 6);
+  controls.target.set(center.x, 0.8, center.z);
+  const camDist = span * 1.05 + 5;
+  camera.position.set(center.x, camDist * 0.72, center.z + camDist * 0.85);
+}
+
+function enterPlay() {
+  if (!placedParts.some(p => p.isGoal)) { showToast('🔔 ゴールを おいてね!'); sfx.deny(); return; }
+  mode = 'play';
+  modeLabel.textContent = '▶ さいせい中…';
+  timeLabel.style.display = 'block';
+  playBtn.style.display = 'none';
+  resetBtn.style.display = 'inline-block';
+  paletteEl.style.display = 'none';
+  document.getElementById('hint').style.display = 'none';
+  selectPart(null);
+  activatePlay();
+  spawnBall();
+  frameCameraToParts();
+  startBGM();
+}
+function exitPlay() {
+  mode = 'edit';
+  modeLabel.textContent = '🛠 はいち モード';
+  timeLabel.style.display = 'none';
+  playBtn.style.display = 'inline-block';
+  resetBtn.style.display = 'none';
+  paletteEl.style.display = 'flex';
+  document.getElementById('hint').style.display = 'block';
+  despawnBall();
+  deactivatePlay();
+  stopBGM();
+}
+
+playBtn.addEventListener('click', enterPlay);
+resetBtn.addEventListener('click', exitPlay);
+stageSelect.addEventListener('change', () => { if (mode === 'play') exitPlay(); loadStage(stageSelect.value); });
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? '🔊' : '🔇';
+  ensureAudio();
+});
+
+/* ============ Fan forces ============ */
+const FAN_RANGE = 3.0;
+const FAN_POWER = 12;
+function applyFanForces() {
+  if (!ballBody) return;
+  placedParts.forEach(p => {
+    if (!p.isFan) return;
+    const dir = facingDir(p.rotY);
+    const rel = new THREE.Vector3(
+      ballBody.position.x - p.x, 0, ballBody.position.z - p.z
+    );
+    const along = rel.dot(dir);              // ファン前方への距離
+    const side = rel.clone().addScaledVector(dir, -along).length(); // 横ずれ
+    // 後方0.9まで捕捉(よこ置きファンの少し後ろで止まったボールも救済)
+    if (along > -0.9 && along < FAN_RANGE && side < 1.3 && ballBody.position.y < 2.2) {
+      const falloff = 1 - Math.max(along, 0) / FAN_RANGE;
+      const sideFade = 1 - (side / 1.3) * 0.35;
+      const f = FAN_POWER * (0.35 + 0.65 * falloff) * sideFade;
+      // 第2引数は重心からの相対位置。省略=重心に作用(余計なトルクをかけない)
+      ballBody.applyForce(new CANNON.Vec3(dir.x * f, 0.8 * falloff, dir.z * f));
+    }
+  });
+}
+
+/* ============ Goal / fail ============ */
+function checkGoal() {
+  if (!ballBody || goalHit || ballFailed) return;
+  const goal = placedParts.find(p => p.isGoal);
+  if (!goal) return;
+  const dx = ballBody.position.x - goal.x;
+  const dz = ballBody.position.z - goal.z;
+  if (Math.hypot(dx, dz) < 0.8 && ballBody.position.y < 1.5) {
+    goalHit = true;
+    stopBGM();
+    sfx.goal();
+    burstConfetti(new THREE.Vector3(goal.x, 1.3, goal.z));
+    ringBell(goal);
+    showToast(`🎉 クリア!<br><span style="font-size:18px">タイム: ${elapsed.toFixed(1)} びょう</span>`, 3200);
+  }
+}
+function checkFail() {
+  if (!ballBody || goalHit || ballFailed) return;
+  const p = ballBody.position;
+  const out = Math.abs(p.x) > GROUND_SIZE / 2 + 2 || Math.abs(p.z) > GROUND_SIZE / 2 + 2 || p.y < -3;
+  const stalled = elapsed > 4 && ballBody.velocity.length() < 0.15;
+  if (out || elapsed > 30 || stalled) {
+    ballFailed = true;
+    stopBGM();
+    sfx.fail();
+    showToast(out ? 'コースの そとに でちゃった…<br>もういちど!' : 'とまっちゃった…<br>パーツを なおして もういちど!', 2200);
+  }
+}
+
+let bellAnim = null;
+function ringBell(goal) {
+  let t = 0;
+  const bell = goal.group.children[1];
+  bellAnim = { update(dt) {
+    t += dt;
+    bell.rotation.z = Math.sin(t * 22) * 0.3 * Math.max(0, 1 - t / 1.6);
+    if (t > 1.8) { bell.rotation.z = 0; bellAnim = null; }
+  } };
+}
+
+/* ============ Confetti ============ */
+let confetti = [];
+const confettiGeo = new THREE.BoxGeometry(0.09, 0.09, 0.02);
+function burstConfetti(pos) {
+  for (let i = 0; i < 60; i++) {
+    const m = new THREE.Mesh(confettiGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(Math.random(), 0.85, 0.6) }));
+    m.position.copy(pos);
+    scene.add(m);
+    confetti.push({
+      mesh: m,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 5 + 2.5, (Math.random() - 0.5) * 5),
+      rot: new THREE.Vector3(Math.random() * 8, Math.random() * 8, Math.random() * 8),
+      life: 2.0,
+    });
+  }
+}
+function updateConfetti(dt) {
+  confetti.forEach(c => {
+    c.vel.y -= 8.5 * dt;
+    c.vel.multiplyScalar(1 - 0.5 * dt);
+    c.mesh.position.addScaledVector(c.vel, dt);
+    c.mesh.rotation.x += c.rot.x * dt;
+    c.mesh.rotation.y += c.rot.y * dt;
+    c.life -= dt;
+  });
+  confetti = confetti.filter(c => {
+    if (c.life <= 0 || c.mesh.position.y < -0.5) { scene.remove(c.mesh); c.mesh.material.dispose(); return false; }
+    return true;
+  });
+}
+
+/* ============ Main loop ============ */
+const clock = new THREE.Clock();
+const MAX_DT = 1 / 30;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), MAX_DT);
+
+  // ファン羽根はいつも回す
+  placedParts.forEach(p => { if (p.fanBlade) p.fanBlade.rotation.z += dt * (mode === 'play' ? 18 : 5); });
+  // ゴールリングをゆっくり回す
+  placedParts.forEach(p => { if (p.goalRing) p.goalRing.rotation.z += dt * 1.2; });
+
+  if (mode === 'play') {
+    if (!goalHit && !ballFailed) {
+      elapsed += dt;
+      timeLabel.textContent = `⏱ ${elapsed.toFixed(1)} びょう`;
+    }
+    applyFanForces();
+    world.step(1 / 60, dt, 4);
+    if (ballBody && ballMesh) {
+      ballMesh.position.copy(ballBody.position);
+      ballMesh.quaternion.copy(ballBody.quaternion);
+    }
+    placedParts.forEach(syncDynMeshes);
+    checkGoal();
+    checkFail();
+  }
+  if (bellAnim) bellAnim.update(dt);
+  updateConfetti(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* ============ Init ============ */
+loadStage('free');
+stageSelect.value = 'free';
+animate();
+
+</script>
+</body>
+</html>
